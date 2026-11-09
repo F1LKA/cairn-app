@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,400&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<title>You're invited to Cairn</title>
+<style>
+  .hero{display:block;width:100%;height:auto;border-radius:10px;margin:20px 0 4px}
+  h1{overflow-wrap:anywhere}
+  .step{border-top:1px solid var(--rule);padding:18px 0 6px;margin-top:22px}
+  .step h2{margin-top:0}
+  .button{display:inline-block;background:var(--accent);color:var(--paper);text-decoration:none;font-weight:600;
+          padding:12px 20px;border-radius:10px;margin:6px 0 10px}
+  .skip{font-size:15px}
+  .note{color:var(--quiet);font-size:15px}
+  .private{border-top:1px solid var(--rule);margin-top:28px;padding-top:16px;color:var(--quiet);font-size:15px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<span class="mark">cairn.</span>
+<img class="hero" src="invite-cairn.jpg" alt="Five stones stacked into a cairn on a golden hillside" width="1280" height="800">
+<h1 id="headline">You've been invited to Cairn</h1>
+<p class="lede">Always keeping you on track.</p>
+
+<section class="step" id="step1">
+  <h2>Step 1 · Get Cairn</h2>
+  <p id="store"><a class="button" id="store-link" href="https://apps.apple.com/gb/app/id6828788737">Get Cairn on the App Store</a></p>
+  <p id="testing" hidden>Cairn isn't on the App Store yet. <span id="ask">Ask the person who invited you</span> for a test version, then come back here.</p>
+  <p class="skip"><a href="#open" id="skip">Already have Cairn? Skip to step 2</a></p>
+</section>
+
+<section class="step" id="open">
+  <h2>Step 2 · Open your invitation</h2>
+  <p id="open-ok"><a class="button" id="share-link" href="#">Open your invitation</a></p>
+  <p class="note" id="open-note">Open this on the iPhone, iPad or Mac where Cairn is installed.</p>
+  <p id="open-bad" hidden>This invitation link isn't complete. Ask <span id="bad-who">whoever invited you</span> to send it again.</p>
+</section>
+
+<p class="private" id="private">You'll see only what you're shared. It stays in your own iCloud. No account to create.</p>
+
+<footer><a href="./">Cairn support</a> · <a href="privacy.html">Privacy policy</a></footer>
+</main>
+
+<script>
+// Cairn's App Store ID. CHRIS: fill this in from App Store Connect (App
+// Information → Apple ID) once Cairn has one; until then the button opens an
+// App Store search for Cairn.
+var APP_STORE_ID = "6828788737";
+
+// Everything personal travels only in the # fragment, which browsers never
+// send to a server. Plain parsing (no URL or URLSearchParams), so Cairn's
+// own tests can run this exact function in JavaScriptCore.
+function parseInvite(hash) {
+  var out = { from: "", households: [], pre: false, share: "" };
+  var s = String(hash || "");
+  if (s.charAt(0) === "#") s = s.slice(1);
+  if (!s) return out;
+  var parts = s.split("&");
+  for (var i = 0; i < parts.length; i++) {
+    var eq = parts[i].indexOf("=");
+    if (eq < 1) continue;
+    var key = parts[i].slice(0, eq), value;
+    try { value = decodeURIComponent(parts[i].slice(eq + 1)); } catch (e) { continue; }
+    value = value.replace(/[\u0000-\u001F\u007F]/g, "").trim();
+    if (key === "from") out.from = clip(value, 60);
+    else if (key === "h" && value && out.households.length < 12) out.households.push(clip(value, 80));
+    else if (key === "pre") out.pre = value === "1";
+    else if (key === "share") out.share = safeShare(value);
+  }
+  return out;
+}
+
+// Only an iCloud share link is ever used for step 2.
+function safeShare(url) {
+  var prefix = "https://www.icloud.com/share/";
+  if (url.indexOf(prefix) !== 0) return "";
+  if (url.length <= prefix.length || url.length > 300) return "";
+  if (/[\s"'<>\\`]/.test(url)) return "";
+  return url;
+}
+
+function clip(s, n) {
+  var chars = Array.from(s);
+  return chars.length > n ? chars.slice(0, n).join("") + "…" : s;
+}
+
+function list(names) {
+  if (names.length < 2) return names.join("");
+  return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+}
+
+function headline(inv) {
+  var who = inv.from || "Someone";
+  var where = inv.households.length ? list(inv.households) : "their home";
+  return who + " has invited you to " + where + " on Cairn";
+}
+
+function fill(inv) {
+  var who = inv.from || "the person who invited you";
+  document.getElementById("headline").textContent = headline(inv);
+  document.title = headline(inv);
+  if (APP_STORE_ID) {
+    document.getElementById("store-link").href = "https://apps.apple.com/gb/app/id" + APP_STORE_ID;
+  }
+  // Every part is set both ways: a second invitation opened in the same tab
+  // changes only the # and must replace the first one completely.
+  document.getElementById("store").hidden = inv.pre;
+  document.getElementById("testing").hidden = !inv.pre;
+  document.getElementById("ask").textContent = "Ask " + who;
+  document.getElementById("share-link").href = inv.share || "#";
+  document.getElementById("open-ok").hidden = !inv.share;
+  document.getElementById("open-note").hidden = !inv.share;
+  document.getElementById("open-bad").hidden = !!inv.share;
+  document.getElementById("bad-who").textContent = who;
+  document.getElementById("private").textContent =
+    "You'll see only what " + (inv.from ? inv.from + " shares" : "they share") + ". It stays in your own iCloud. No account to create.";
+}
+
+if (typeof document !== "undefined") {
+  fill(parseInvite(location.hash));
+  window.addEventListener("hashchange", function () { fill(parseInvite(location.hash)); });
+  // Scroll, never replace the # (that would lose the invitation's details).
+  document.getElementById("skip").addEventListener("click", function (e) {
+    e.preventDefault();
+    document.getElementById("open").scrollIntoView({ behavior: "smooth" });
+  });
+}
+</script>
+</body>
+</html>
